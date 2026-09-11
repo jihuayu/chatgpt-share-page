@@ -1,0 +1,13 @@
+{{define "message"}}
+<section class="msg{{if .Hidden}} hidden{{end}}" id="{{.Anchor}}">
+  <div class="msg-head">
+    <span class="msg-role {{.Role}}">{{.RoleLabel}}</span>
+    {{if .CreatedAt}}<span class="msg-time">{{.CreatedAt}}</span>{{end}}
+    {{if .Hidden}}<span class="hidden-tag">hidden</span>{{end}}
+    <a class="msg-anchor" href="#{{.Anchor}}" aria-label="link to message">#{{.Index}}</a>
+  </div>
+  <div class="msg-body">
+{{range .Blocks}}{{.}}
+{{end}}  </div>
+</section>
+{{end}}

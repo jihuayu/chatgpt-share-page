@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+{{if .NoIndex}}<meta name="robots" content="noindex, nofollow">
+{{end}}<title>{{.Title}}</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="page-head">
+  <h1 class="page-title">{{.Title}}</h1>
+  <div class="page-meta">
+    <span class="badge">AI-generated conversation</span>
+    <span>{{.MessageCount}} messages</span>
+    <span>imported {{.ImportedAt}}</span>
+    {{if .Model}}<span>{{.Model}}</span>{{end}}
+    {{if .SourceURL}}<span>source: <a href="{{.SourceURL}}" rel="nofollow noopener noreferrer">{{.SourceHost}}</a></span>{{end}}
+    <button class="theme-toggle" id="theme-toggle" type="button">toggle theme</button>
+  </div>
+</header>
+<main>
+{{range .Messages}}{{template "message" .}}{{end}}
+</main>
+<footer class="page-foot">
+  <p>This is an independent snapshot of a public ChatGPT shared conversation,
+  captured at import time. It does not sync with the original
+  {{if .SourceURL}}&mdash; view the <a href="{{.SourceURL}}" rel="nofollow noopener noreferrer">original share link</a>{{end}}.</p>
+</footer>
+</div>
+<script>{{.Script}}</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# local data (SQLite + artifacts)
+data/*
+!data/.gitkeep
+
+# binaries
+/server
+/chatgpt-share-page
+*.exe
+
+# OS / editor
+Thumbs.db
+.DS_Store

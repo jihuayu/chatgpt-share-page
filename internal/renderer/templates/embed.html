@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+{{if .NoIndex}}<meta name="robots" content="noindex, nofollow">
+{{end}}<title>{{.Title}}</title>
+<style>{{.CSS}}</style>
+</head>
+<body class="embed">
+<div class="wrap">
+<header class="page-head">
+  <h1 class="page-title">{{.Title}}</h1>
+  <div class="page-meta">
+    <span class="badge">AI-generated conversation</span>
+    <span>{{.MessageCount}} messages</span>
+  </div>
+</header>
+<main>
+{{range .Messages}}{{template "message" .}}{{end}}
+</main>
+</div>
+<script>{{.Script}}</script>
+</body>
+</html>
