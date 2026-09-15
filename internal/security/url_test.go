@@ -24,6 +24,7 @@ func TestValidateShareURL(t *testing.T) {
 		"https://chatgpt.com.evil.com/share/x",  // suffix host
 		"https://chatgpt.com/c/abc",             // wrong path
 		"https://chatgpt.com/share/",            // empty id
+		"https://chatgpt.com/share/abc/extra",   // trailing path
 		"https://chatgpt.com:4443/share/abc",    // custom port
 		"https://user:pass@chatgpt.com/share/x", // credentials
 	}

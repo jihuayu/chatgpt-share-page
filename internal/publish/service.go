@@ -49,9 +49,9 @@ func (e *DeletedError) Error() string { return "snapshot deleted" }
 type ImportRequest struct {
 	URL            string
 	Title          string
-	IncludeHidden  bool
-	AllNodes       bool
-	Timezone       string
+	IncludeHidden  *bool
+	AllNodes       *bool
+	Timezone       *string
 	TimeoutSeconds int
 }
 
@@ -103,6 +103,10 @@ func NewService(
 	if purger == nil {
 		purger = &cache.CloudflarePurger{}
 	}
+	concurrency := cfg.MaxImportConcurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
 	return &Service{
 		cfg:      cfg,
 		store:    store,
@@ -111,7 +115,7 @@ func NewService(
 		renderer: r,
 		purger:   purger,
 		log:      log,
-		sem:      make(chan struct{}, cfg.MaxImportConcurrency),
+		sem:      make(chan struct{}, concurrency),
 	}
 }
 
@@ -121,7 +125,8 @@ func (s *Service) Import(ctx context.Context, req ImportRequest) (*ImportResult,
 	if err := security.ValidateShareURL(req.URL); err != nil {
 		return nil, err
 	}
-	if _, err := conversation.ResolveLocation(req.Timezone); err != nil {
+	options := req.options(conversation.Options{})
+	if _, err := conversation.ResolveLocation(options.Timezone); err != nil {
 		return nil, err
 	}
 	if err := s.acquire(ctx); err != nil {
@@ -141,7 +146,7 @@ func (s *Service) Import(ctx context.Context, req ImportRequest) (*ImportResult,
 		return nil, &StorageError{Err: err}
 	}
 
-	snapshot, raw, err := s.buildSnapshot(ctx, req, "")
+	snapshot, raw, err := s.buildSnapshot(ctx, req, "", options)
 	if err != nil {
 		return nil, err
 	}
@@ -216,10 +221,15 @@ func (s *Service) Refresh(ctx context.Context, snapshotID string, req ImportRequ
 	if req.URL == "" {
 		req.URL = snap.SourceURL
 	}
+	options, err := s.activeOptions(ctx, snap)
+	if err != nil {
+		return nil, err
+	}
+	options = req.options(options)
 	if err := security.ValidateShareURL(req.URL); err != nil {
 		return nil, err
 	}
-	if _, err := conversation.ResolveLocation(req.Timezone); err != nil {
+	if _, err := conversation.ResolveLocation(options.Timezone); err != nil {
 		return nil, err
 	}
 	if err := s.acquire(ctx); err != nil {
@@ -227,7 +237,7 @@ func (s *Service) Refresh(ctx context.Context, snapshotID string, req ImportRequ
 	}
 	defer func() { <-s.sem }()
 
-	snapshot, raw, err := s.buildSnapshot(ctx, req, snap.ID)
+	snapshot, raw, err := s.buildSnapshot(ctx, req, snap.ID, options)
 	if err != nil {
 		return nil, err
 	}
@@ -235,17 +245,21 @@ func (s *Service) Refresh(ctx context.Context, snapshotID string, req ImportRequ
 		snapshot.Title = req.Title
 	}
 	contentHash := conversation.ContentHash(snapshot)
+	updated := refreshedSnapshotRow(snap, snapshot, contentHash)
 	if contentHash == snap.ContentHash {
-		return s.resultFor(snap, snap.ActiveRevision, "", false, false), nil
+		return s.resultFor(updated, snap.ActiveRevision, "", false, false), nil
 	}
 	revisionID := conversation.RevisionID(contentHash)
 	if _, err := s.store.GetRevision(ctx, snap.ID, revisionID); err == nil {
 		// Content identical to an older revision: reactivate it.
-		if err := s.store.ActivateRevision(ctx, snap.ID, revisionID, contentHash, snapshot.Metadata.MessageCount); err != nil {
+		if err := s.files.WriteRawJSON(snap.ID, raw); err != nil {
+			return nil, &StorageError{Err: fmt.Errorf("write raw.json: %w", err)}
+		}
+		if err := s.store.ActivateRevision(ctx, updated, revisionID, contentHash, snapshot.Metadata.MessageCount); err != nil {
 			return nil, &StorageError{Err: err}
 		}
 		s.purgeStable(context.Background(), snap)
-		return s.resultFor(snap, revisionID, "", false, true), nil
+		return s.resultFor(updated, revisionID, "", false, true), nil
 	} else if !errors.Is(err, storage.ErrNotFound) {
 		return nil, &StorageError{Err: err}
 	}
@@ -265,13 +279,31 @@ func (s *Service) Refresh(ctx context.Context, snapshotID string, req ImportRequ
 	if err := s.writeRevisionArtifacts(snapshot, rev, raw); err != nil {
 		return nil, err
 	}
-	if err := s.store.PublishRevision(ctx, nil, rev, ""); err != nil {
+	if err := s.store.PublishRefresh(ctx, updated, rev); err != nil {
 		return nil, &StorageError{Err: err}
 	}
 	s.purgeStable(context.Background(), snap)
 	s.log.Info("snapshot refreshed",
 		"snapshot_id", snap.ID, "revision", revisionID)
-	return s.resultFor(snap, revisionID, "", false, true), nil
+	return s.resultFor(updated, revisionID, "", false, true), nil
+}
+
+func refreshedSnapshotRow(current *storage.Snapshot, snapshot *conversation.ConversationSnapshot, contentHash string) *storage.Snapshot {
+	return &storage.Snapshot{
+		ID:             current.ID,
+		Slug:           current.Slug,
+		Title:          snapshot.Title,
+		SourceProvider: snapshot.Source.Provider,
+		SourceURL:      snapshot.Source.URL,
+		SourceShareID:  snapshot.Source.ShareID,
+		Visibility:     current.Visibility,
+		NoIndex:        current.NoIndex,
+		Status:         current.Status,
+		ContentHash:    contentHash,
+		MessageCount:   snapshot.Metadata.MessageCount,
+		CreatedAt:      current.CreatedAt,
+		UpdatedAt:      snapshot.UpdatedAt,
+	}
 }
 
 // Delete marks the snapshot deleted; stable URLs stop serving immediately.
@@ -337,14 +369,15 @@ func (s *Service) PreviewImport(ctx context.Context, snapshotID string, req Impo
 	if err := security.ValidateShareURL(req.URL); err != nil {
 		return nil, err
 	}
-	if _, err := conversation.ResolveLocation(req.Timezone); err != nil {
+	options := req.options(conversation.Options{})
+	if _, err := conversation.ResolveLocation(options.Timezone); err != nil {
 		return nil, err
 	}
 	if err := s.acquire(ctx); err != nil {
 		return nil, err
 	}
 	defer func() { <-s.sem }()
-	snapshot, _, err := s.buildSnapshot(ctx, req, snapshotID)
+	snapshot, _, err := s.buildSnapshot(ctx, req, snapshotID, options)
 	if err != nil {
 		return nil, err
 	}
@@ -369,8 +402,41 @@ func (s *Service) PreviewImport(ctx context.Context, snapshotID string, req Impo
 	}, nil
 }
 
+func (req ImportRequest) options(defaults conversation.Options) conversation.Options {
+	if req.IncludeHidden != nil {
+		defaults.IncludeHidden = *req.IncludeHidden
+	}
+	if req.AllNodes != nil {
+		defaults.AllNodes = *req.AllNodes
+	}
+	if req.Timezone != nil {
+		defaults.Timezone = *req.Timezone
+	}
+	return defaults
+}
+
+func (s *Service) activeOptions(ctx context.Context, snap *storage.Snapshot) (conversation.Options, error) {
+	rev, err := s.store.GetRevision(ctx, snap.ID, snap.ActiveRevision)
+	if err != nil {
+		return conversation.Options{}, &StorageError{Err: fmt.Errorf("load active revision: %w", err)}
+	}
+	data, err := s.files.ReadFile(rev.SnapshotPath)
+	if err != nil {
+		return conversation.Options{}, &StorageError{Err: fmt.Errorf("read active snapshot: %w", err)}
+	}
+	var active conversation.ConversationSnapshot
+	if err := json.Unmarshal(data, &active); err != nil {
+		return conversation.Options{}, &StorageError{Err: fmt.Errorf("decode active snapshot: %w", err)}
+	}
+	return conversation.Options{
+		IncludeHidden: active.Metadata.IncludeHidden,
+		AllNodes:      active.Metadata.AllNodes,
+		Timezone:      active.Metadata.Timezone,
+	}, nil
+}
+
 // buildSnapshot fetches, extracts and normalizes a share URL.
-func (s *Service) buildSnapshot(ctx context.Context, req ImportRequest, snapshotID string) (*conversation.ConversationSnapshot, []byte, error) {
+func (s *Service) buildSnapshot(ctx context.Context, req ImportRequest, snapshotID string, options conversation.Options) (*conversation.ConversationSnapshot, []byte, error) {
 	timeout := s.cfg.FetchTimeout
 	if req.TimeoutSeconds > 0 {
 		timeout = time.Duration(req.TimeoutSeconds) * time.Second
@@ -392,11 +458,7 @@ func (s *Service) buildSnapshot(ctx context.Context, req ImportRequest, snapshot
 	if err != nil {
 		return nil, nil, &StorageError{Err: fmt.Errorf("encode raw conversation: %w", err)}
 	}
-	snapshot, err := conversation.Normalize(conversationMap, req.URL, conversation.Options{
-		IncludeHidden: req.IncludeHidden,
-		AllNodes:      req.AllNodes,
-		Timezone:      req.Timezone,
-	}, time.Now())
+	snapshot, err := conversation.Normalize(conversationMap, req.URL, options, time.Now())
 	if err != nil {
 		return nil, nil, err
 	}

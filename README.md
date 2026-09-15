@@ -20,6 +20,10 @@ ChatGPT Share URL -> fetch -> extract -> normalize
 go run ./cmd/server
 ```
 
+Open `http://localhost:8080` to import a public Share URL from the browser. The
+result view exposes the stable full-page and embed URLs. A management token is
+shown only for a newly created snapshot; store it before leaving the page.
+
 Configuration via environment variables:
 
 | Variable | Default | Purpose |
@@ -81,6 +85,23 @@ Embed a conversation:
         style="width:100%;border:0;min-height:480px"></iframe>
 ```
 
+## Docker
+
+Build and run the service with a named volume for SQLite and generated
+artifacts:
+
+```sh
+docker build -t chatgpt-share-page .
+docker run --rm -p 8080:8080 \
+  -v chatgpt-share-data:/data \
+  -e PUBLIC_BASE_URL=http://localhost:8080 \
+  chatgpt-share-page
+```
+
+For a public deployment, set `PUBLIC_BASE_URL` and `APP_BASE_URL` to the
+external HTTPS origin. The image runs as a non-root user and writes only under
+`/data`.
+
 ## Security notes
 
 - Only `https://chatgpt.com/share/...` / `chat.openai.com/share/...` URLs are
@@ -95,6 +116,8 @@ Embed a conversation:
 ## Development
 
 ```sh
-go build ./...
+go vet ./...
 go test ./...
+go test -race ./...
+go build ./cmd/server
 ```

@@ -1,0 +1,10 @@
+.git
+.gitignore
+data/*
+!data/.gitkeep
+*.exe
+/server
+/chatgpt-share-page
+.env
+.env.*
+coverage.out

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var sharePathRE = regexp.MustCompile(`^/share/([^/?#]+)`)
+var sharePathRE = regexp.MustCompile(`^/share/([^/?#]+)/?$`)
 
 // InvalidURLError indicates that a URL is not a supported public share URL.
 type InvalidURLError struct {

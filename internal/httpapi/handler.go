@@ -21,6 +21,7 @@ import (
 	"github.com/jihuayu/chatgpt-share-page/internal/renderer"
 	"github.com/jihuayu/chatgpt-share-page/internal/security"
 	"github.com/jihuayu/chatgpt-share-page/internal/storage"
+	"github.com/jihuayu/chatgpt-share-page/web"
 )
 
 const maxTimeoutSeconds = 300
@@ -66,6 +67,9 @@ func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.handleHealth)
 	mux.HandleFunc("GET /{$}", h.handleIndex)
+	mux.HandleFunc("GET /favicon.ico", h.handleFavicon)
+	mux.HandleFunc("GET /assets/index.css", h.handleIndexCSS)
+	mux.HandleFunc("GET /assets/index.js", h.handleIndexJS)
 	mux.HandleFunc("POST /api/v1/snapshots", h.handleImport)
 	mux.HandleFunc("GET /api/v1/snapshots/{id}", h.handleGetSnapshot)
 	mux.HandleFunc("POST /api/v1/snapshots/{id}/refresh", h.handleRefresh)
@@ -83,22 +87,51 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
+	data, err := web.Static.ReadFile("static/index.html")
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "interface unavailable")
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	io.WriteString(w, `<!doctype html><meta charset="utf-8"><title>chatgpt-share-page</title>
-<h1>chatgpt-share-page</h1>
-<p>Import a public ChatGPT share link into an immutable, self-hosted snapshot.</p>
-<pre>POST /api/v1/snapshots
-{"url": "https://chatgpt.com/share/&lt;id&gt;"}</pre>`)
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(data)
+}
+
+func (h *Handler) handleFavicon(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) handleIndexCSS(w http.ResponseWriter, r *http.Request) {
+	h.serveIndexAsset(w, r, "static/index.css", "text/css; charset=utf-8")
+}
+
+func (h *Handler) handleIndexJS(w http.ResponseWriter, r *http.Request) {
+	h.serveIndexAsset(w, r, "static/index.js", "text/javascript; charset=utf-8")
+}
+
+func (h *Handler) serveIndexAsset(w http.ResponseWriter, r *http.Request, name, contentType string) {
+	data, err := web.Static.ReadFile(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(data)
 }
 
 type importRequest struct {
-	URL            string `json:"url"`
-	Title          string `json:"title"`
-	IncludeHidden  bool   `json:"include_hidden"`
-	AllNodes       bool   `json:"all_nodes"`
-	Timezone       string `json:"timezone"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
+	URL            string  `json:"url"`
+	Title          string  `json:"title"`
+	IncludeHidden  *bool   `json:"include_hidden"`
+	AllNodes       *bool   `json:"all_nodes"`
+	Timezone       *string `json:"timezone"`
+	TimeoutSeconds int     `json:"timeout_seconds"`
 }
 
 func (r *importRequest) toService() publish.ImportRequest {
@@ -107,9 +140,17 @@ func (r *importRequest) toService() publish.ImportRequest {
 		Title:          strings.TrimSpace(r.Title),
 		IncludeHidden:  r.IncludeHidden,
 		AllNodes:       r.AllNodes,
-		Timezone:       r.Timezone,
+		Timezone:       trimOptionalString(r.Timezone),
 		TimeoutSeconds: r.TimeoutSeconds,
 	}
+}
+
+func trimOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	return &trimmed
 }
 
 func (h *Handler) handleImport(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +207,7 @@ func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input importRequest
-	if r.ContentLength > 0 {
+	if r.ContentLength != 0 {
 		if !decodeJSON(w, r, &input, h.cfg.MaxRequestBytes) {
 			return
 		}
@@ -196,14 +237,14 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 type previewRequest struct {
-	SnapshotID     string `json:"snapshot_id"`
-	Kind           string `json:"kind"`
-	URL            string `json:"url"`
-	Title          string `json:"title"`
-	IncludeHidden  bool   `json:"include_hidden"`
-	AllNodes       bool   `json:"all_nodes"`
-	Timezone       string `json:"timezone"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
+	SnapshotID     string  `json:"snapshot_id"`
+	Kind           string  `json:"kind"`
+	URL            string  `json:"url"`
+	Title          string  `json:"title"`
+	IncludeHidden  *bool   `json:"include_hidden"`
+	AllNodes       *bool   `json:"all_nodes"`
+	Timezone       *string `json:"timezone"`
+	TimeoutSeconds int     `json:"timeout_seconds"`
 }
 
 // handlePreview renders a stored snapshot revision on demand. The result is
@@ -216,6 +257,10 @@ func (h *Handler) handlePreview(w http.ResponseWriter, r *http.Request) {
 	snapshotID := strings.TrimSpace(input.SnapshotID)
 	if snapshotID == "" {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "snapshot_id is required")
+		return
+	}
+	if input.TimeoutSeconds < 0 || input.TimeoutSeconds > maxTimeoutSeconds {
+		writeError(w, r, http.StatusBadRequest, "invalid_option", "timeout_seconds must be between 0 and 300")
 		return
 	}
 	snap, err := h.store.GetSnapshotByID(r.Context(), snapshotID)
@@ -256,10 +301,10 @@ func (h *Handler) handlePreview(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) previewFromURL(w http.ResponseWriter, r *http.Request, snap *storage.Snapshot, input previewRequest) {
 	result, err := h.svc.PreviewImport(r.Context(), snap.ID, publish.ImportRequest{
 		URL:            strings.TrimSpace(input.URL),
-		Title:          input.Title,
+		Title:          strings.TrimSpace(input.Title),
 		IncludeHidden:  input.IncludeHidden,
 		AllNodes:       input.AllNodes,
-		Timezone:       input.Timezone,
+		Timezone:       trimOptionalString(input.Timezone),
 		TimeoutSeconds: input.TimeoutSeconds,
 	}, input.Kind)
 	if err != nil {
@@ -390,6 +435,9 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if data, err := h.files.ReadFile(path); err == nil {
 		return data, nil // another request rebuilt it
 	}
+	if rev.RendererVersion != renderer.Version {
+		return nil, errors.New("artifact renderer version is no longer available")
+	}
 	select {
 	case h.fallbackSem <- struct{}{}:
 		defer func() { <-h.fallbackSem }()
@@ -423,11 +471,6 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 
 func (h *Handler) writeArtifact(w http.ResponseWriter, r *http.Request, snap *storage.Snapshot, rev *storage.Revision, data []byte, kind string) {
 	etag := `"` + rev.ContentHash + `"`
-	if match := r.Header.Get("If-None-Match"); match == etag {
-		w.Header().Set("ETag", etag)
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
 	csp := h.renderer.PageCSP()
 	if kind == "e" {
 		csp = h.renderer.EmbedCSP()
@@ -440,6 +483,10 @@ func (h *Handler) writeArtifact(w http.ResponseWriter, r *http.Request, snap *st
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	h.noindexHeader(w, snap)
+	if match := r.Header.Get("If-None-Match"); match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }

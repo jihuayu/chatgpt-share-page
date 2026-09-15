@@ -122,6 +122,7 @@ func New() (*Renderer, error) {
 	if err != nil {
 		return nil, err
 	}
+	embedScript := copyScript + "\n" + normalizeNewlines(string(embedJS))
 	r := &Renderer{
 		pageTmpl:      pageTmpl,
 		embedTmpl:     embedTmpl,
@@ -130,11 +131,16 @@ func New() (*Renderer, error) {
 		codeFormatter: chromahtml.New(chromahtml.WithClasses(true), chromahtml.TabWidth(4)),
 		css:           string(appCSS) + "\n" + codeCSS,
 		pageScript:    pageScript,
-		embedScript:   copyScript + "\n" + string(embedJS),
+		embedScript:   embedScript,
 	}
 	r.pageCSP = cspHeader(r.pageScript, "'self'")
 	r.embedCSP = cspHeader(r.embedScript, "https:")
 	return r, nil
+}
+
+func normalizeNewlines(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	return strings.ReplaceAll(value, "\r", "\n")
 }
 
 // PageCSP returns the Content-Security-Policy for full pages.

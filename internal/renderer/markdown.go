@@ -51,6 +51,7 @@ func newSanitizer() *bluemonday.Policy {
 	// script or style, so allowing the attribute globally is safe.
 	p.AllowAttrs("class").Globally()
 	p.AllowAttrs("id").OnElements("h1", "h2", "h3", "h4", "h5", "h6")
+	p.AllowURLSchemes("https")
 	p.AllowAttrs("href").Matching(httpsURLRE).OnElements("a")
 	p.AllowAttrs("title").OnElements("a", "abbr")
 	p.AllowAttrs("type").Matching(regexp.MustCompile(`^checkbox$`)).OnElements("input")

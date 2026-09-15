@@ -14,6 +14,7 @@ type canonicalContent struct {
 	Title    string            `json:"title"`
 	Source   SnapshotSource    `json:"source"`
 	Messages []ConversationMsg `json:"messages"`
+	Metadata SnapshotMetadata  `json:"metadata"`
 }
 
 // ContentHash returns the SHA-256 digest of the canonical snapshot JSON.
@@ -25,6 +26,7 @@ func ContentHash(snapshot *ConversationSnapshot) string {
 		Title:    snapshot.Title,
 		Source:   snapshot.Source,
 		Messages: snapshot.Messages,
+		Metadata: snapshot.Metadata,
 	}
 	encoded, _ := json.Marshal(canonical)
 	sum := sha256.Sum256(encoded)

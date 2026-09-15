@@ -10,10 +10,10 @@ const testURL = "https://chatgpt.com/share/abc-123"
 
 func conv() map[string]any {
 	return map[string]any{
-		"title":             "Demo Chat",
-		"conversation_id":   "conv-1",
-		"current_node":      "n3",
-		"create_time":       1700000000.0,
+		"title":              "Demo Chat",
+		"conversation_id":    "conv-1",
+		"current_node":       "n3",
+		"create_time":        1700000000.0,
 		"default_model_slug": "gpt-4o",
 		"mapping": map[string]any{
 			"n1": map[string]any{
@@ -162,14 +162,26 @@ func TestContentHashStable(t *testing.T) {
 	if ContentHash(a) == ContentHash(d) {
 		t.Error("different content must hash differently")
 	}
+	// Rendering metadata is part of the immutable output and must therefore
+	// produce a distinct revision when it changes.
+	model := *a
+	model.Metadata.Model = "gpt-5"
+	if ContentHash(a) == ContentHash(&model) {
+		t.Error("different model metadata must hash differently")
+	}
+	zone := *a
+	zone.Metadata.Timezone = "Asia/Shanghai"
+	if ContentHash(a) == ContentHash(&zone) {
+		t.Error("different timezone metadata must hash differently")
+	}
 }
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Hello World!":         "hello-world",
+		"Hello World!":           "hello-world",
 		"  spaces---everywhere ": "spaces-everywhere",
-		"中文标题":                 "conversation",
-		"":                     "conversation",
+		"中文标题":                   "conversation",
+		"":                       "conversation",
 	}
 	for in, want := range cases {
 		if got := Slugify(in); got != want {

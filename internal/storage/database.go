@@ -245,11 +245,13 @@ func (s *Store) PublishRevision(ctx context.Context, snap *Snapshot, rev *Revisi
 }
 
 // ActivateRevision points the snapshot at an already-recorded revision.
-func (s *Store) ActivateRevision(ctx context.Context, snapshotID, revision, contentHash string, messageCount int) error {
+func (s *Store) ActivateRevision(ctx context.Context, snap *Snapshot, revision, contentHash string, messageCount int) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE snapshots SET active_revision = ?, content_hash = ?, message_count = ?, updated_at = ?
+		`UPDATE snapshots SET title = ?, source_provider = ?, source_url = ?, source_share_id = ?,
+			active_revision = ?, content_hash = ?, message_count = ?, updated_at = ?
 		 WHERE id = ? AND status = 'active'`,
-		revision, contentHash, messageCount, formatTime(time.Now()), snapshotID)
+		snap.Title, snap.SourceProvider, snap.SourceURL, snap.SourceShareID,
+		revision, contentHash, messageCount, formatTime(time.Now()), snap.ID)
 	if err != nil {
 		return err
 	}
@@ -257,6 +259,40 @@ func (s *Store) ActivateRevision(ctx context.Context, snapshotID, revision, cont
 		return ErrNotFound
 	}
 	return nil
+}
+
+// PublishRefresh records a new revision and atomically updates the mutable
+// snapshot metadata that was derived from the refreshed source.
+func (s *Store) PublishRefresh(ctx context.Context, snap *Snapshot, rev *Revision) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := formatTime(time.Now())
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO snapshot_revisions (snapshot_id, revision, content_hash, extractor_version,
+			renderer_version, snapshot_path, page_path, embed_path, created_at)
+		 VALUES (?,?,?,?,?,?,?,?,?)`,
+		rev.SnapshotID, rev.Revision, rev.ContentHash, rev.ExtractorVersion, rev.RendererVersion,
+		rev.SnapshotPath, rev.PagePath, rev.EmbedPath, now)
+	if err != nil {
+		return fmt.Errorf("insert revision: %w", err)
+	}
+	res, err := tx.ExecContext(ctx,
+		`UPDATE snapshots SET title = ?, source_provider = ?, source_url = ?, source_share_id = ?,
+			active_revision = ?, content_hash = ?, message_count = ?, updated_at = ?
+		 WHERE id = ? AND status = 'active'`,
+		snap.Title, snap.SourceProvider, snap.SourceURL, snap.SourceShareID,
+		rev.Revision, rev.ContentHash, rev.MessageCount, now, snap.ID)
+	if err != nil {
+		return fmt.Errorf("activate revision: %w", err)
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return fmt.Errorf("activate revision: snapshot %s not active", snap.ID)
+	}
+	return tx.Commit()
 }
 
 // MarkDeleted flags a snapshot as deleted; revision rows remain for audit.

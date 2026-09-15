@@ -14,7 +14,20 @@ import (
 	"github.com/jihuayu/chatgpt-share-page/internal/security"
 )
 
-const defaultMaxHTML = 20 << 20
+const (
+	defaultMaxHTML   = 20 << 20
+	maxFetchAttempts = 3
+	retryDelay       = 100 * time.Millisecond
+)
+
+// Keep the fetch path compatible with TLS-inspecting proxies that cannot
+// handle Go's hybrid post-quantum ClientHello.
+var classicCurvePreferences = []tls.CurveID{
+	tls.X25519,
+	tls.CurveP256,
+	tls.CurveP384,
+	tls.CurveP521,
+}
 
 // FetchError indicates a failure while downloading the share page.
 type FetchError struct {
@@ -87,27 +100,43 @@ func (c *Client) FetchHTML(ctx context.Context, rawURL string) (string, error) {
 	request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	request.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-	response, err := clientCopy.Do(request)
-	if err != nil {
-		return "", &FetchError{URL: rawURL, Err: err}
-	}
-	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return "", &FetchError{URL: rawURL, StatusCode: response.StatusCode}
-	}
-
 	limit := c.MaxHTMLSize
 	if limit <= 0 {
 		limit = defaultMaxHTML
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
-	if err != nil {
-		return "", &FetchError{URL: rawURL, Err: err}
+	for attempt := 0; attempt < maxFetchAttempts; attempt++ {
+		response, err := clientCopy.Do(request.Clone(ctx))
+		if err == nil {
+			if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+				_ = response.Body.Close()
+				return "", &FetchError{URL: rawURL, StatusCode: response.StatusCode}
+			}
+			body, readErr := io.ReadAll(io.LimitReader(response.Body, limit+1))
+			_ = response.Body.Close()
+			if readErr == nil {
+				if int64(len(body)) > limit {
+					return "", &FetchError{URL: rawURL, Err: errors.New("response body exceeds size limit")}
+				}
+				return string(body), nil
+			}
+			err = readErr
+		}
+		if !isRetryableEOF(err) || attempt == maxFetchAttempts-1 {
+			return "", &FetchError{URL: rawURL, Err: err}
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * retryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return "", &FetchError{URL: rawURL, Err: ctx.Err()}
+		case <-timer.C:
+		}
 	}
-	if int64(len(body)) > limit {
-		return "", &FetchError{URL: rawURL, Err: errors.New("response body exceeds size limit")}
-	}
-	return string(body), nil
+	return "", &FetchError{URL: rawURL, Err: io.EOF}
+}
+
+func isRetryableEOF(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
 
 func (c *Client) httpClient() *http.Client {
@@ -126,9 +155,12 @@ func (c *Client) httpClient() *http.Client {
 	}
 	return &http.Client{
 		Transport: &http.Transport{
-			DialContext:           dialContext,
-			TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
-			ForceAttemptHTTP2:     true,
+			DialContext: dialContext,
+			TLSClientConfig: &tls.Config{
+				MinVersion:       tls.VersionTLS12,
+				CurvePreferences: classicCurvePreferences,
+			},
+			ForceAttemptHTTP2:     false,
 			MaxIdleConns:          4,
 			IdleConnTimeout:       30 * time.Second,
 			TLSHandshakeTimeout:   15 * time.Second,

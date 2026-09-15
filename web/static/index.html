@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>ChatGPT Share Page</title>
+  <link rel="stylesheet" href="/assets/index.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="ChatGPT Share Page home">
+      <span class="brand-mark" aria-hidden="true">SP</span>
+      <span>ChatGPT Share Page</span>
+    </a>
+    <a class="health-link" href="/healthz">Service status</a>
+  </header>
+
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">Snapshot publisher</p>
+      <h1 id="page-title">New snapshot</h1>
+    </section>
+
+    <div class="workspace">
+      <section class="form-pane" aria-labelledby="import-title">
+        <div class="section-heading">
+          <span class="section-index">01</span>
+          <div>
+            <p class="section-kicker">Source</p>
+            <h2 id="import-title">Create snapshot</h2>
+          </div>
+        </div>
+
+        <form id="import-form" novalidate>
+          <label for="share-url">ChatGPT Share URL</label>
+          <input id="share-url" name="url" type="url" inputmode="url" autocomplete="url" required
+                 placeholder="https://chatgpt.com/share/...">
+          <p class="field-note">Accepted hosts: chatgpt.com and chat.openai.com.</p>
+
+          <label for="snapshot-title">Title override <span>optional</span></label>
+          <input id="snapshot-title" name="title" type="text" maxlength="240" autocomplete="off"
+                 placeholder="Use the conversation title">
+
+          <details class="advanced">
+            <summary>Import options</summary>
+            <div class="advanced-grid">
+              <div>
+                <label for="timezone">Timezone</label>
+                <input id="timezone" name="timezone" type="text" autocomplete="off" placeholder="UTC">
+              </div>
+              <div>
+                <label for="timeout">Timeout</label>
+                <div class="number-field">
+                  <input id="timeout" name="timeout" type="number" min="0" max="300" value="30">
+                  <span>seconds</span>
+                </div>
+              </div>
+            </div>
+            <label class="check-row" for="include-hidden">
+              <input id="include-hidden" name="include_hidden" type="checkbox">
+              <span>Include hidden and system messages</span>
+            </label>
+            <label class="check-row" for="all-nodes">
+              <input id="all-nodes" name="all_nodes" type="checkbox">
+              <span>Include all conversation branches</span>
+            </label>
+          </details>
+
+          <div id="form-error" class="alert alert-error" role="alert" hidden></div>
+          <button id="submit-button" class="primary-action" type="submit">Create snapshot</button>
+        </form>
+      </section>
+
+      <section class="result-pane" aria-labelledby="result-title">
+        <div class="section-heading">
+          <span class="section-index">02</span>
+          <div>
+            <p class="section-kicker">Publication</p>
+            <h2 id="result-title">Snapshot result</h2>
+          </div>
+        </div>
+
+        <ol class="publish-rail" aria-label="Publication progress">
+          <li data-step="validate"><span>1</span><strong>Validate link</strong></li>
+          <li data-step="fetch"><span>2</span><strong>Fetch conversation</strong></li>
+          <li data-step="publish"><span>3</span><strong>Publish revision</strong></li>
+        </ol>
+
+        <div id="empty-result" class="empty-result">
+          <p>No snapshot yet.</p>
+        </div>
+
+        <div id="snapshot-result" class="snapshot-result" hidden>
+          <div class="result-status">
+            <span id="result-badge" class="status-badge">Published</span>
+            <span id="result-summary"></span>
+          </div>
+          <h3 id="result-name"></h3>
+          <dl class="metadata">
+            <div><dt>Revision</dt><dd id="result-revision"></dd></div>
+            <div><dt>Messages</dt><dd id="result-messages"></dd></div>
+          </dl>
+
+          <div class="output-group">
+            <label for="page-url">Full page</label>
+            <div class="output-row">
+              <input id="page-url" type="text" readonly>
+              <button type="button" class="secondary-action" data-copy-target="page-url">Copy</button>
+              <a id="page-open" class="icon-action" target="_blank" rel="noopener noreferrer" aria-label="Open full page" title="Open full page">&#8599;</a>
+            </div>
+          </div>
+
+          <div class="output-group">
+            <label for="embed-url">Embed page</label>
+            <div class="output-row">
+              <input id="embed-url" type="text" readonly>
+              <button type="button" class="secondary-action" data-copy-target="embed-url">Copy</button>
+              <a id="embed-open" class="icon-action" target="_blank" rel="noopener noreferrer" aria-label="Open embed page" title="Open embed page">&#8599;</a>
+            </div>
+          </div>
+
+          <section id="token-section" class="token-section" aria-labelledby="token-title">
+            <div class="token-heading">
+              <div>
+                <p class="section-kicker">Shown once</p>
+                <h3 id="token-title">Management token</h3>
+              </div>
+              <button type="button" class="secondary-action" data-copy-target="admin-token">Copy token</button>
+            </div>
+            <code id="admin-token"></code>
+            <p>Store this token now. It is required to refresh or delete the snapshot and cannot be retrieved later.</p>
+          </section>
+
+          <div id="existing-note" class="alert" hidden>This share URL already has a snapshot. Existing imports do not issue another management token.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/assets/index.js" defer></script>
+</body>
+</html>
