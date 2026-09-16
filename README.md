@@ -87,7 +87,26 @@ Embed a conversation:
 
 ## Docker
 
-Build and run the service with a named volume for SQLite and generated
+Images for `linux/amd64` and `linux/arm64` are published automatically to
+GitHub Container Registry after pushes to `main` and version tags matching
+`v*`:
+
+```sh
+docker pull ghcr.io/jihuayu/chatgpt-share-page:latest
+docker run --rm -p 8080:8080 \
+  -v chatgpt-share-data:/data \
+  -e PUBLIC_BASE_URL=http://localhost:8080 \
+  ghcr.io/jihuayu/chatgpt-share-page:latest
+```
+
+Because the repository and its package are private, authenticate with a
+GitHub personal access token that can read packages before pulling:
+
+```sh
+echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
+```
+
+To build the image locally instead, use a named volume for SQLite and generated
 artifacts:
 
 ```sh
