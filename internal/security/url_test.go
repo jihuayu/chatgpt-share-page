@@ -36,7 +36,8 @@ func TestValidateShareURL(t *testing.T) {
 }
 
 func TestExtractShareID(t *testing.T) {
-	if got := ExtractShareID("https://chatgpt.com/share/6aa3c3d2-1d54-83ec-8cd5-9883f007da29"); got != "6aa3c3d2-1d54-83ec-8cd5-9883f007da29" {
+	const exampleShareID = "12345678-90ab-4cde-8f01-234567890abc"
+	if got := ExtractShareID("https://chatgpt.com/share/" + exampleShareID); got != exampleShareID {
 		t.Errorf("unexpected share id %q", got)
 	}
 	if got := ExtractShareID("https://evil.com/"); got != "" {
