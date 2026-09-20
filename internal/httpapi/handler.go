@@ -412,7 +412,7 @@ func (h *Handler) serveRevision(w http.ResponseWriter, r *http.Request, kind str
 	}
 	// Preserve archived HTML and snapshot JSON; cache the upgraded
 	// presentation separately so existing public URLs receive rendering fixes.
-	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" || rev.RendererVersion == "r3" || rev.RendererVersion == "r4" {
+	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" || rev.RendererVersion == "r3" || rev.RendererVersion == "r4" || rev.RendererVersion == "r5" {
 		path += "." + renderer.Version
 	}
 	data, err := h.files.ReadFile(path)
@@ -452,7 +452,7 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if data, err := h.files.ReadFile(path); err == nil {
 		return data, nil // another request rebuilt it
 	}
-	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" && rev.RendererVersion != "r3" && rev.RendererVersion != "r4" {
+	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" && rev.RendererVersion != "r3" && rev.RendererVersion != "r4" && rev.RendererVersion != "r5" {
 		return nil, errors.New("artifact renderer version is no longer available")
 	}
 	select {

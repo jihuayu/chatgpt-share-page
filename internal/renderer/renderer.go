@@ -28,7 +28,7 @@ import (
 var templatesFS embed.FS
 
 // Version is bumped whenever the rendered output shape changes.
-const Version = "r5"
+const Version = "r6"
 
 // pageScript powers copy buttons and the theme toggle on full pages.
 const mediaScript = `(function(){document.querySelectorAll('.chat-image img').forEach(function(img){
