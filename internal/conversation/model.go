@@ -45,6 +45,7 @@ type ConversationMsg struct {
 	CreatedAt *time.Time     `json:"created_at,omitempty"`
 	Blocks    []ContentBlock `json:"blocks"`
 	Hidden    bool           `json:"hidden"`
+	Process   bool           `json:"process,omitempty"`
 }
 
 // ContentBlock is a typed piece of message content.

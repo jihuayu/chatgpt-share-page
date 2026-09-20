@@ -27,7 +27,7 @@ import (
 var templatesFS embed.FS
 
 // Version is bumped whenever the rendered output shape changes.
-const Version = "r1"
+const Version = "r2"
 
 // pageScript powers copy buttons and the theme toggle on full pages.
 const pageScript = `(function(){
@@ -223,6 +223,9 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 	}
 	messages := make([]msgView, 0, len(snapshot.Messages))
 	for index, msg := range snapshot.Messages {
+		if msg.Process || msg.Hidden || (msg.Role != "user" && msg.Role != "assistant") {
+			continue
+		}
 		blocks := make([]template.HTML, 0, len(msg.Blocks))
 		for _, block := range msg.Blocks {
 			rendered, err := r.blockHTML(block)
@@ -253,7 +256,7 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 		ImportedAt:   snapshot.ImportedAt.In(location).Format("2006-01-02 15:04 MST"),
 		UpdatedAt:    snapshot.UpdatedAt.In(location).Format("2006-01-02 15:04 MST"),
 		Model:        snapshot.Metadata.Model,
-		MessageCount: snapshot.Metadata.MessageCount,
+		MessageCount: len(messages),
 		Messages:     messages,
 		CSS:          template.CSS(r.css),
 		Script:       template.JS(script),

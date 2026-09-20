@@ -18,6 +18,10 @@ import (
 
 var httpsURLRE = regexp.MustCompile(`^https://`)
 
+// ChatGPT citation tokens are transport markup, not displayable text. Source
+// URLs remain available as sanitized citation blocks when metadata has them.
+var citationTokenRE = regexp.MustCompile(`\x{E200}(?:cite|filecite)\x{E202}[^\x{E201}]*\x{E201}`)
+
 // newMarkdown builds the Goldmark renderer: GFM plus publish-time syntax
 // highlighting emitted as Chroma CSS classes (no inline styles, no runtime JS).
 func newMarkdown() goldmark.Markdown {
@@ -63,6 +67,7 @@ func newSanitizer() *bluemonday.Policy {
 
 // renderMarkdown converts a Markdown source to sanitized HTML.
 func (r *Renderer) renderMarkdown(source string) (string, error) {
+	source = citationTokenRE.ReplaceAllString(source, "")
 	var buf bytes.Buffer
 	if err := r.markdown.Convert([]byte(source), &buf); err != nil {
 		return "", err

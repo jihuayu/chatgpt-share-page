@@ -15,8 +15,6 @@
   <div class="page-meta">
     <span class="badge">AI-generated conversation</span>
     <span>{{.MessageCount}} messages</span>
-    <span>imported {{.ImportedAt}}</span>
-    {{if .Model}}<span>{{.Model}}</span>{{end}}
     {{if .SourceURL}}<span>source: <a href="{{.SourceURL}}" rel="nofollow noopener noreferrer">{{.SourceHost}}</a></span>{{end}}
     <button class="theme-toggle" id="theme-toggle" type="button">toggle theme</button>
   </div>

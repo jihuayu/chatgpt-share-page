@@ -77,6 +77,35 @@ func Normalize(conversation map[string]any, sourceURL string, opts Options, now 
 	return snapshot, nil
 }
 
+// RestorePresentationMetadata upgrades legacy snapshots without replacing their
+// archived text or message order. Only matching message IDs supply metadata.
+func RestorePresentationMetadata(snapshot *ConversationSnapshot, raw map[string]any) {
+	byID := map[string]*ConversationMsg{}
+	for _, node := range conversationNodes(raw, true) {
+		message, _ := node["message"].(map[string]any)
+		if msg := normalizeMessage(message, true); msg != nil && msg.ID != "" {
+			byID[msg.ID] = msg
+		}
+	}
+	for i := range snapshot.Messages {
+		msg := &snapshot.Messages[i]
+		if original := byID[msg.ID]; original != nil {
+			msg.Process = original.Process
+			msg.Hidden = msg.Hidden || original.Hidden
+			seen := map[string]bool{}
+			for _, block := range msg.Blocks {
+				seen[block.URL] = true
+			}
+			for _, block := range original.Blocks {
+				if block.Type == "citation" && !seen[block.URL] {
+					msg.Blocks = append(msg.Blocks, block)
+					seen[block.URL] = true
+				}
+			}
+		}
+	}
+}
+
 // ResolveLocation validates and loads a timezone name.
 func ResolveLocation(name string) (*time.Location, error) {
 	if name == "" || strings.EqualFold(name, "local") {
@@ -213,6 +242,12 @@ func normalizeMessage(message map[string]any, includeHidden bool) *ConversationM
 	hidden := boolValue(metadata["is_visually_hidden_from_conversation"])
 	content, _ := message["content"].(map[string]any)
 	contentType := stringValue(content["content_type"])
+	channel := strings.ToLower(firstString(message["channel"], metadata["channel"]))
+	recipient := strings.ToLower(stringValue(message["recipient"]))
+	process := role == "tool" || role == "system" ||
+		(role == "assistant" && ((channel != "" && channel != "final") ||
+			(recipient != "" && recipient != "all") || contentType == "thoughts" ||
+			contentType == "reasoning_recap" || contentType == "execution_output"))
 
 	if !includeHidden {
 		if role != "user" && role != "assistant" {
@@ -232,10 +267,11 @@ func normalizeMessage(message map[string]any, includeHidden bool) *ConversationM
 	}
 
 	msg := &ConversationMsg{
-		ID:     stringValue(message["id"]),
-		Role:   role,
-		Blocks: blocks,
-		Hidden: hidden,
+		ID:      stringValue(message["id"]),
+		Role:    role,
+		Blocks:  blocks,
+		Hidden:  hidden,
+		Process: process,
 	}
 	if seconds := numericValue(message["create_time"]); seconds != nil {
 		created := time.Unix(0, int64(*seconds*float64(time.Second))).UTC()
@@ -409,17 +445,24 @@ func citationBlocks(metadata map[string]any) []ContentBlock {
 	}
 	seen := map[string]bool{}
 	var blocks []ContentBlock
-	for _, item := range items {
+	for len(items) > 0 {
+		item := items[0]
+		items = items[1:]
 		ref, ok := item.(map[string]any)
 		if !ok {
 			continue
+		}
+		for _, key := range []string{"items", "refs"} {
+			if nested, ok := ref[key].([]any); ok {
+				items = append(items, nested...)
+			}
 		}
 		url := firstString(ref["url"], ref["attribution"])
 		if url == "" || !strings.HasPrefix(url, "https://") || seen[url] {
 			continue
 		}
 		seen[url] = true
-		title := firstString(ref["title"], ref["matched_text"])
+		title := firstString(ref["title"])
 		if title == "" {
 			title = url
 		}

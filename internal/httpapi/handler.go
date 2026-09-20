@@ -4,8 +4,10 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -406,6 +408,11 @@ func (h *Handler) serveRevision(w http.ResponseWriter, r *http.Request, kind str
 	if kind == "e" {
 		path = rev.EmbedPath
 	}
+	// Preserve archived r1 HTML and snapshot JSON; cache the upgraded
+	// presentation separately so existing public URLs receive rendering fixes.
+	if rev.RendererVersion == "r1" {
+		path += "." + renderer.Version
+	}
 	data, err := h.files.ReadFile(path)
 	if err != nil {
 		data, err = h.regenerateArtifact(r.Context(), rev, kind, path)
@@ -443,7 +450,7 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if data, err := h.files.ReadFile(path); err == nil {
 		return data, nil // another request rebuilt it
 	}
-	if rev.RendererVersion != renderer.Version {
+	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" {
 		return nil, errors.New("artifact renderer version is no longer available")
 	}
 	select {
@@ -459,6 +466,17 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	var snapshot conversation.ConversationSnapshot
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return nil, err
+	}
+	if rev.RendererVersion == "r1" {
+		payload, readErr := h.files.ReadFile(h.files.RawRelPath(rev.SnapshotID))
+		if readErr != nil {
+			return nil, fmt.Errorf("read legacy message metadata: %w", readErr)
+		}
+		var original map[string]any
+		if err := json.Unmarshal(payload, &original); err != nil {
+			return nil, err
+		}
+		conversation.RestorePresentationMetadata(&snapshot, original)
 	}
 	var data []byte
 	if kind == "e" {
@@ -478,15 +496,16 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 }
 
 func (h *Handler) writeArtifact(w http.ResponseWriter, r *http.Request, snap *storage.Snapshot, rev *storage.Revision, data []byte, kind string) {
-	etag := `"` + rev.ContentHash + `"`
+	sum := sha256.Sum256(data)
+	etag := fmt.Sprintf(`"%x"`, sum)
 	csp := h.renderer.PageCSP()
 	if kind == "e" {
 		csp = h.renderer.EmbedCSP()
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", csp)
-	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.Header().Set("Cloudflare-CDN-Cache-Control", "public, max-age=31536000, stale-if-error=604800")
+	w.Header().Set("Cache-Control", "public, no-cache")
+	w.Header().Set("Cloudflare-CDN-Cache-Control", "public, max-age=300, stale-if-error=604800")
 	w.Header().Set("ETag", etag)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")

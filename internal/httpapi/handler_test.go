@@ -612,6 +612,71 @@ func TestFallbackRefusesUnavailableRendererVersion(t *testing.T) {
 	}
 }
 
+func TestLegacyChatPresentationPreservesArchive(t *testing.T) {
+	env := newTestEnv(t)
+	env.fetch.page = testPageWithMessages(t, "Legacy chat", 3)
+	resp, imported := doJSON(t, http.MethodPost, env.server.URL+"/api/v1/snapshots", "", map[string]any{"url": "https://chatgpt.com/share/legacy-chat"})
+	resp.Body.Close()
+	id, slug := imported["id"].(string), imported["slug"].(string)
+	active, err := env.store.GetRevision(context.Background(), id, imported["revision"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := env.files.ReadFile(active.SnapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawBytes, err := env.files.ReadFile(env.files.RawRelPath(id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(rawBytes, &raw); err != nil {
+		t.Fatal(err)
+	}
+	raw["mapping"].(map[string]any)["n2"].(map[string]any)["message"].(map[string]any)["channel"] = "commentary"
+	rawBytes, _ = json.Marshal(raw)
+	if err := env.files.WriteRawJSON(id, rawBytes); err != nil {
+		t.Fatal(err)
+	}
+	rev := *active
+	rev.Revision = "legacy-chat"
+	rev.RendererVersion = "r1"
+	rel := env.files.RevisionRelDir(id, rev.Revision)
+	rev.SnapshotPath = filepath.Join(rel, "snapshot.json")
+	rev.PagePath = filepath.Join(rel, "page.html")
+	rev.EmbedPath = filepath.Join(rel, "embed.html")
+	if err := env.files.WriteRevision(id, rev.Revision, storage.RevisionFiles{SnapshotJSON: snapshot, PageHTML: []byte("old page"), EmbedHTML: []byte("old embed")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.store.PublishRevision(context.Background(), nil, &rev, ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"c", "e"} {
+		for attempt := 0; attempt < 2; attempt++ {
+			request, _ := http.NewRequest(http.MethodGet, env.server.URL+"/"+kind+"/"+slug+"/r/legacy-chat", nil)
+			request.Header.Set("If-None-Match", `"`+rev.ContentHash+`"`)
+			result, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, _ := io.ReadAll(result.Body)
+			result.Body.Close()
+			if result.StatusCode != 200 || !strings.Contains(string(body), "msg-assistant") || strings.Contains(string(body), "Go is a language") || !strings.Contains(string(body), "Additional answer 3") {
+				t.Fatalf("bad legacy response %d: %s", result.StatusCode, body)
+			}
+		}
+	}
+	archived, _ := env.files.ReadFile(rev.PagePath)
+	if string(archived) != "old page" {
+		t.Fatal("overwrote archive")
+	}
+	archivedSnapshot, _ := env.files.ReadFile(rev.SnapshotPath)
+	if string(archivedSnapshot) != string(snapshot) {
+		t.Fatal("overwrote snapshot")
+	}
+}
+
 func TestImportValidation(t *testing.T) {
 	env := newTestEnv(t)
 	url := env.server.URL + "/api/v1/snapshots"
