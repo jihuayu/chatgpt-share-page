@@ -124,6 +124,17 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outlin
 .block-quote .quote-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 
 .sources { margin-top:1.75rem; border-top:1px solid var(--border); padding-top:.75rem; }
+.research-report { border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+.research-report > summary { display:grid; gap:.5rem; padding:1.2rem 1.4rem; background:var(--card); cursor:pointer; list-style:none; }
+.research-report > summary::-webkit-details-marker { display:none; }
+.research-report > summary:focus-visible { outline:2px solid var(--accent); outline-offset:-3px; }
+.report-label { color:var(--muted); font-size:.75rem; }
+.research-report > summary strong { font-size:1rem; line-height:1.6; overflow-wrap:anywhere; }
+.report-action { color:var(--accent); font-size:.8rem; }
+.report-collapse, .research-report[open] .report-expand { display:none; }
+.research-report[open] .report-collapse { display:inline; }
+.report-content { padding:1rem 1.4rem; border-top:1px solid var(--border); }
+@media(max-width:600px) { .report-content { padding:.75rem; } }
 .sources summary { color:var(--muted); font-size:.75rem; cursor:pointer; width:fit-content; }
 .sources summary span { display:inline-block; border-radius:5px; padding:0 .35rem; background:var(--card); margin-left:.3rem; }
 .sources-list { display:grid; gap:.45rem; margin-top:.75rem; padding:.75rem 1rem; border-radius:10px; background:var(--card); }

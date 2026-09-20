@@ -26,7 +26,7 @@ func TestDeepResearchReports(t *testing.T) {
 	for _, encoded := range []bool{true, false} {
 		widget := researchFixture(t, "completed", encoded)
 		report := researchReport(widget)
-		if report == nil || report.Process || len(report.Blocks) != 2 || !strings.Contains(report.Blocks[0].Content, "| Game |") {
+		if report == nil || !report.Research || report.Process || len(report.Blocks) != 2 || !strings.Contains(report.Blocks[0].Content, "| Game |") {
 			t.Fatalf("missing report: %+v", report)
 		}
 		raw := map[string]any{"linear_conversation": []any{
@@ -44,8 +44,9 @@ func TestDeepResearchReports(t *testing.T) {
 		}
 		legacy := &ConversationSnapshot{Messages: []ConversationMsg{{ID: "q", Role: "user", Blocks: []ContentBlock{{Type: "markdown", Content: "archived question"}}}, {ID: "started", Role: "assistant"}, {ID: "q2", Role: "user"}}}
 		RestoreResearchReports(legacy, raw)
+		legacy.Messages[2].Research = false // r4 archives have text but no presentation marker.
 		RestoreResearchReports(legacy, raw)
-		if len(legacy.Messages) != 4 || legacy.Messages[2].ID != "report" || legacy.Messages[0].Blocks[0].Content != "archived question" {
+		if len(legacy.Messages) != 4 || !legacy.Messages[2].Research || legacy.Messages[2].ID != "report" || legacy.Messages[0].Blocks[0].Content != "archived question" {
 			t.Fatal("restore duplicated report or changed archive")
 		}
 	}

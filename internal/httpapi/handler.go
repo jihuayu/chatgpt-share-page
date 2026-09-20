@@ -39,6 +39,7 @@ type Handler struct {
 
 	fallbackMu  sync.Map // path -> *sync.Mutex
 	fallbackSem chan struct{}
+	imageLocks  [32]sync.Mutex
 }
 
 // New builds the HTTP handler around the publish service.
@@ -68,6 +69,7 @@ func New(
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.handleHealth)
+	mux.HandleFunc("GET /media/{id}/{file}", h.handleImage)
 	mux.HandleFunc("GET /{$}", h.handleIndex)
 	mux.HandleFunc("GET /favicon.ico", h.handleFavicon)
 	mux.HandleFunc("GET /assets/index.css", h.handleIndexCSS)
@@ -410,7 +412,7 @@ func (h *Handler) serveRevision(w http.ResponseWriter, r *http.Request, kind str
 	}
 	// Preserve archived HTML and snapshot JSON; cache the upgraded
 	// presentation separately so existing public URLs receive rendering fixes.
-	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" || rev.RendererVersion == "r3" {
+	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" || rev.RendererVersion == "r3" || rev.RendererVersion == "r4" {
 		path += "." + renderer.Version
 	}
 	data, err := h.files.ReadFile(path)
@@ -450,7 +452,7 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if data, err := h.files.ReadFile(path); err == nil {
 		return data, nil // another request rebuilt it
 	}
-	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" && rev.RendererVersion != "r3" {
+	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" && rev.RendererVersion != "r3" && rev.RendererVersion != "r4" {
 		return nil, errors.New("artifact renderer version is no longer available")
 	}
 	select {

@@ -32,6 +32,7 @@ func researchReport(message map[string]any) *ConversationMsg {
 	if result == nil || result.Role != "assistant" || result.Process || result.Hidden || result.ID == "" {
 		return nil
 	}
+	result.Research = true
 	return result
 }
 
@@ -49,6 +50,13 @@ func RestoreResearchReports(snapshot *ConversationSnapshot, raw map[string]any) 
 		report := researchReport(message)
 		if report == nil && finalImageOutput(message) {
 			report = normalizeMessage(message, false)
+		}
+		if report != nil && report.Research && existing[report.ID] {
+			for j := range snapshot.Messages {
+				if snapshot.Messages[j].ID == report.ID {
+					snapshot.Messages[j].Research = true
+				}
+			}
 		}
 		if report == nil || existing[report.ID] {
 			continue

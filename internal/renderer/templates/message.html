@@ -6,9 +6,11 @@
   </div>
   {{if .Media}}<div class="msg-media">{{range .Media}}{{.}}{{end}}</div>{{end}}
   {{if or .Blocks .Citations}}<div class="msg-body">
+{{if .Research}}<details class="research-report"><summary><span class="report-label">深度研究 · 完整报告</span><strong>{{.ReportTitle}}</strong><span class="report-action"><span class="report-expand">展开报告 ↓</span><span class="report-collapse">收起报告 ↑</span></span></summary><div class="report-content">{{end}}
 {{range .Blocks}}{{.}}
 {{end}}
 {{if .Citations}}<details class="sources"><summary>参考来源 <span>{{len .Citations}}</span></summary><div class="sources-list">{{range .Citations}}{{.}}{{end}}</div></details>{{end}}
+{{if .Research}}</div></details>{{end}}
   </div>{{end}}
 </section>
 {{end}}

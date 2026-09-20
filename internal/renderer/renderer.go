@@ -12,6 +12,7 @@ import (
 	"html"
 	"html/template"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -27,10 +28,15 @@ import (
 var templatesFS embed.FS
 
 // Version is bumped whenever the rendered output shape changes.
-const Version = "r4"
+const Version = "r5"
 
 // pageScript powers copy buttons and the theme toggle on full pages.
-const pageScript = `(function(){
+const mediaScript = `(function(){document.querySelectorAll('.chat-image img').forEach(function(img){
+function failed(){var figure=img.closest('figure');if(!figure)return;var message=document.createElement('a');message.className='media-placeholder';message.href=img.src;message.textContent='图片加载失败，点击重试';figure.replaceWith(message);}
+img.addEventListener('error',failed,{once:true});if(img.complete&&!img.naturalWidth)failed();
+});})();`
+
+const pageScript = mediaScript + `(function(){
 "use strict";
 document.querySelectorAll("pre").forEach(function(pre){
   var btn=document.createElement("button");
@@ -61,7 +67,7 @@ if(toggle){toggle.addEventListener("click",function(){
 })();`
 
 // copyScript is the embed-page variant: copy buttons plus height sync.
-const copyScript = `(function(){
+const copyScript = mediaScript + `(function(){
 "use strict";
 document.querySelectorAll("pre").forEach(function(pre){
   var btn=document.createElement("button");
@@ -155,7 +161,7 @@ func cspHeader(script, frameAncestors string) string {
 	hash := base64.StdEncoding.EncodeToString(sum[:])
 	return "default-src 'none'; " +
 		"style-src 'unsafe-inline'; " +
-		"img-src https: data:; " +
+		"img-src 'self' https: data:; " +
 		"font-src 'none'; " +
 		"connect-src 'none'; " +
 		"script-src 'sha256-" + hash + "'; " +
@@ -205,15 +211,17 @@ type viewData struct {
 }
 
 type msgView struct {
-	Index     int
-	Anchor    string
-	Role      string
-	RoleLabel string
-	CreatedAt string
-	Hidden    bool
-	Blocks    []template.HTML
-	Citations []template.HTML
-	Media     []template.HTML
+	Index       int
+	Anchor      string
+	Role        string
+	RoleLabel   string
+	CreatedAt   string
+	Hidden      bool
+	Blocks      []template.HTML
+	Citations   []template.HTML
+	Media       []template.HTML
+	Research    bool
+	ReportTitle string
 }
 
 func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script string, embed bool) (viewData, error) {
@@ -232,6 +240,9 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 		var citations []template.HTML
 		var media []template.HTML
 		for _, block := range msg.Blocks {
+			if block.Type == "image" && msg.Role == "assistant" && safeMediaID.MatchString(snapshot.ID) && safeImageID.MatchString(block.AssetName) {
+				block.URL = "/media/" + snapshot.ID + "/" + block.AssetName
+			}
 			if block.Type == "image" && block.URL == "" {
 				block.Content = "已上传图片"
 				if msg.Role == "assistant" {
@@ -255,14 +266,27 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 			}
 		}
 		view := msgView{
-			Index:     index + 1,
-			Anchor:    fmt.Sprintf("msg-%d", index+1),
-			Role:      msg.Role,
-			RoleLabel: roleLabel(msg.Role),
-			Hidden:    msg.Hidden,
-			Blocks:    blocks,
-			Citations: citations,
-			Media:     media,
+			Index:       index + 1,
+			Anchor:      fmt.Sprintf("msg-%d", index+1),
+			Role:        msg.Role,
+			RoleLabel:   roleLabel(msg.Role),
+			Hidden:      msg.Hidden,
+			Blocks:      blocks,
+			Citations:   citations,
+			Media:       media,
+			Research:    msg.Research,
+			ReportTitle: "深度研究报告",
+		}
+		if msg.Research {
+			for _, block := range msg.Blocks {
+				if block.Type == "markdown" {
+					first := strings.TrimSpace(strings.SplitN(block.Content, "\n", 2)[0])
+					if strings.HasPrefix(first, "#") {
+						view.ReportTitle = strings.TrimSpace(strings.TrimLeft(first, "#"))
+					}
+					break
+				}
+			}
 		}
 		if msg.CreatedAt != nil {
 			view.CreatedAt = msg.CreatedAt.In(location).Format("2006-01-02 15:04 MST")
@@ -286,10 +310,17 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 }
 
 // blockHTML renders one ContentBlock to a safe HTML fragment.
+var safeMediaID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
+var safeImageID = regexp.MustCompile(`^file_[A-Za-z0-9]{1,100}$`)
+var localImageURL = regexp.MustCompile(`^/media/[A-Za-z0-9_-]{1,100}/file_[A-Za-z0-9]{1,100}$`)
+
 func (r *Renderer) blockHTML(block conversation.ContentBlock) (template.HTML, error) {
 	switch block.Type {
 	case "image":
 		imageURL := conversation.PublicImageURL(block.URL)
+		if localImageURL.MatchString(block.URL) {
+			imageURL = block.URL
+		}
 		if imageURL == "" {
 			label := block.Content
 			if label != "已生成图片" {

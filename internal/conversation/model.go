@@ -46,6 +46,7 @@ type ConversationMsg struct {
 	Blocks    []ContentBlock `json:"blocks"`
 	Hidden    bool           `json:"hidden"`
 	Process   bool           `json:"process,omitempty"`
+	Research  bool           `json:"research,omitempty"`
 }
 
 // ContentBlock is a typed piece of message content.
