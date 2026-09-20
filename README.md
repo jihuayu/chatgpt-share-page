@@ -1,5 +1,9 @@
 # ChatGPT Share Page
 
+<p align="center">
+  <img src="web/static/logo.png" alt="ChatGPT Share Page logo" width="160">
+</p>
+
 Self-hosted archival for public ChatGPT share links. The service imports a
 shared conversation once, normalizes it into a stable model, and publishes
 immutable full-page and embeddable HTML snapshots backed by SQLite.

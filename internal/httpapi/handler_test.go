@@ -204,13 +204,22 @@ func TestIndexAndAssets(t *testing.T) {
 		}
 	}
 
-	resp, err = http.Get(env.server.URL + "/favicon.ico")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent || resp.Header.Get("Cache-Control") != "public, max-age=86400" {
-		t.Errorf("favicon = %d cache=%q", resp.StatusCode, resp.Header.Get("Cache-Control"))
+	for _, path := range []string{"/assets/logo.png", "/favicon.ico"} {
+		resp, err = http.Get(env.server.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/png" {
+			t.Errorf("image asset %s = %d %q", path, resp.StatusCode, resp.Header.Get("Content-Type"))
+		}
+		if resp.Header.Get("Cache-Control") != "public, max-age=86400" || resp.Header.Get("X-Content-Type-Options") != "nosniff" {
+			t.Errorf("image asset %s missing cache/security headers", path)
+		}
+		if len(data) < 8 || string(data[1:4]) != "PNG" {
+			t.Errorf("image asset %s is not a PNG", path)
+		}
 	}
 }
 

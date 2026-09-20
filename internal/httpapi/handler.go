@@ -70,6 +70,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /favicon.ico", h.handleFavicon)
 	mux.HandleFunc("GET /assets/index.css", h.handleIndexCSS)
 	mux.HandleFunc("GET /assets/index.js", h.handleIndexJS)
+	mux.HandleFunc("GET /assets/logo.png", h.handleLogo)
 	mux.HandleFunc("POST /api/v1/snapshots", h.handleImport)
 	mux.HandleFunc("GET /api/v1/snapshots/{id}", h.handleGetSnapshot)
 	mux.HandleFunc("POST /api/v1/snapshots/{id}/refresh", h.handleRefresh)
@@ -100,9 +101,8 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-func (h *Handler) handleFavicon(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.WriteHeader(http.StatusNoContent)
+func (h *Handler) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	h.serveStaticAsset(w, r, "static/logo.png", "image/png", "public, max-age=86400")
 }
 
 func (h *Handler) handleIndexCSS(w http.ResponseWriter, r *http.Request) {
@@ -113,14 +113,22 @@ func (h *Handler) handleIndexJS(w http.ResponseWriter, r *http.Request) {
 	h.serveIndexAsset(w, r, "static/index.js", "text/javascript; charset=utf-8")
 }
 
+func (h *Handler) handleLogo(w http.ResponseWriter, r *http.Request) {
+	h.serveStaticAsset(w, r, "static/logo.png", "image/png", "public, max-age=86400")
+}
+
 func (h *Handler) serveIndexAsset(w http.ResponseWriter, r *http.Request, name, contentType string) {
+	h.serveStaticAsset(w, r, name, contentType, "public, max-age=3600")
+}
+
+func (h *Handler) serveStaticAsset(w http.ResponseWriter, r *http.Request, name, contentType, cacheControl string) {
 	data, err := web.Static.ReadFile(name)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", cacheControl)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = w.Write(data)
 }
