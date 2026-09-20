@@ -184,7 +184,7 @@ func TestIndexAndAssets(t *testing.T) {
 		contentType string
 		marker      string
 	}{
-		{path: "/assets/index.css", contentType: "text/css", marker: "--green"},
+		{path: "/assets/index.css", contentType: "text/css", marker: "--accent"},
 		{path: "/assets/index.js", contentType: "text/javascript", marker: "/api/v1/snapshots"},
 	} {
 		resp, err = http.Get(env.server.URL + asset.path)

@@ -14,6 +14,7 @@ import (
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/util"
 )
 
 var httpsURLRE = regexp.MustCompile(`^https://`)
@@ -35,7 +36,7 @@ func newMarkdown() goldmark.Markdown {
 				),
 			),
 		),
-		goldmark.WithParserOptions(parser.WithAutoHeadingID()),
+		goldmark.WithParserOptions(parser.WithAutoHeadingID(), parser.WithInlineParsers(util.Prioritized(&chatStrongParser{}, 450))),
 	)
 }
 

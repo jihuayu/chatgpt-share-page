@@ -1,11 +1,13 @@
 {{define "message"}}
 <section class="msg msg-{{.Role}}" id="{{.Anchor}}" aria-label="{{.RoleLabel}}">
   <div class="msg-head">
-    <span class="msg-role {{.Role}}">{{.RoleLabel}}</span>
-    <a class="msg-anchor" href="#{{.Anchor}}" aria-label="link to message">#{{.Index}}</a>
+    <span class="msg-role {{.Role}}">{{if eq .Role "user"}}你{{else}}ChatGPT{{end}}</span>
+    <a class="msg-anchor" href="#{{.Anchor}}" aria-label="定位这条消息">↗</a>
   </div>
   <div class="msg-body">
 {{range .Blocks}}{{.}}
-{{end}}  </div>
+{{end}}
+{{if .Citations}}<details class="sources"><summary>参考来源 <span>{{len .Citations}}</span></summary><div class="sources-list">{{range .Citations}}{{.}}{{end}}</div></details>{{end}}
+  </div>
 </section>
 {{end}}

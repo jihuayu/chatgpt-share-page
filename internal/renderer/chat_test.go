@@ -24,7 +24,7 @@ func TestChatPresentation(t *testing.T) {
 			t.Fatal(err)
 		}
 		page := string(data)
-		for _, want := range []string{"msg-user", "msg-assistant", "问题是什么", "<strong>回答</strong>", "2 messages", "https://example.com"} {
+		for _, want := range []string{"msg-user", "msg-assistant", "问题是什么", "<strong>回答</strong>", "2 条消息", "https://example.com", `<details class="sources">`} {
 			if !strings.Contains(page, want) {
 				t.Errorf("missing %q", want)
 			}

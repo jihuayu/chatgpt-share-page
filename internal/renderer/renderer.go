@@ -27,7 +27,7 @@ import (
 var templatesFS embed.FS
 
 // Version is bumped whenever the rendered output shape changes.
-const Version = "r2"
+const Version = "r3"
 
 // pageScript powers copy buttons and the theme toggle on full pages.
 const pageScript = `(function(){
@@ -212,6 +212,7 @@ type msgView struct {
 	CreatedAt string
 	Hidden    bool
 	Blocks    []template.HTML
+	Citations []template.HTML
 }
 
 func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script string, embed bool) (viewData, error) {
@@ -227,12 +228,17 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 			continue
 		}
 		blocks := make([]template.HTML, 0, len(msg.Blocks))
+		var citations []template.HTML
 		for _, block := range msg.Blocks {
 			rendered, err := r.blockHTML(block)
 			if err != nil {
 				return viewData{}, &RenderError{Err: err}
 			}
 			if rendered != "" {
+				if block.Type == "citation" {
+					citations = append(citations, rendered)
+					continue
+				}
 				blocks = append(blocks, rendered)
 			}
 		}
@@ -243,6 +249,7 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 			RoleLabel: roleLabel(msg.Role),
 			Hidden:    msg.Hidden,
 			Blocks:    blocks,
+			Citations: citations,
 		}
 		if msg.CreatedAt != nil {
 			view.CreatedAt = msg.CreatedAt.In(location).Format("2006-01-02 15:04 MST")

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,21 +11,19 @@
 <body>
 <div class="wrap">
 <header class="page-head">
+  <nav class="reader-nav" aria-label="阅读工具"><a class="reader-brand" href="/">ChatGPT Share Page</a><button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换明暗主题">◐ <span>外观</span></button></nav>
   <h1 class="page-title">{{.Title}}</h1>
   <div class="page-meta">
-    <span class="badge">AI-generated conversation</span>
-    <span>{{.MessageCount}} messages</span>
-    {{if .SourceURL}}<span>source: <a href="{{.SourceURL}}" rel="nofollow noopener noreferrer">{{.SourceHost}}</a></span>{{end}}
-    <button class="theme-toggle" id="theme-toggle" type="button">toggle theme</button>
+    <span>与 ChatGPT 的对话</span><span class="meta-dot" aria-hidden="true">·</span>
+    <span>{{.MessageCount}} 条消息</span>
+    {{if .SourceURL}}<a class="source-link" href="{{.SourceURL}}" rel="nofollow noopener noreferrer" target="_blank">查看原对话 ↗</a>{{end}}
   </div>
 </header>
 <main>
 {{range .Messages}}{{template "message" .}}{{end}}
 </main>
 <footer class="page-foot">
-  <p>This is an independent snapshot of a public ChatGPT shared conversation,
-  captured at import time. It does not sync with the original
-  {{if .SourceURL}}&mdash; view the <a href="{{.SourceURL}}" rel="nofollow noopener noreferrer">original share link</a>{{end}}.</p>
+  <p>此页面保存了导入时的公开对话，不会自动同步原对话。AI 生成的内容可能不准确，请核实重要信息。</p>
 </footer>
 </div>
 <script>{{.Script}}</script>

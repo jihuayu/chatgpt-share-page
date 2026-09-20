@@ -1,144 +1,290 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>ChatGPT Share Page</title>
-  <link rel="icon" href="/favicon.ico" type="image/png">
-  <link rel="stylesheet" href="/assets/index.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="ChatGPT Share Page home">
-      <img class="brand-mark" src="/assets/logo.png" alt="" width="36" height="36">
-      <span>ChatGPT Share Page</span>
-    </a>
-    <a class="health-link" href="/healthz">Service status</a>
-  </header>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>ChatGPT Share Page</title>
+    <link rel="icon" href="/favicon.ico" type="image/png" />
+    <link rel="stylesheet" href="/assets/index.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="ChatGPT Share Page home">
+        <img
+          class="brand-mark"
+          src="/assets/logo.png"
+          alt=""
+          width="36"
+          height="36"
+        />
+        <span>ChatGPT Share Page</span>
+      </a>
+      <a class="health-link" href="#how-it-works"
+        >如何使用 <span aria-hidden="true">↗</span></a
+      >
+    </header>
 
-  <main class="shell">
-    <section class="intro" aria-labelledby="page-title">
-      <p class="eyebrow">Snapshot publisher</p>
-      <h1 id="page-title">New snapshot</h1>
-    </section>
+    <main class="shell">
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">好对话，值得留下来</p>
+        <h1 id="page-title">
+          把 ChatGPT 对话<br />变成一页<span>好分享的内容。</span>
+        </h1>
+        <p class="intro-note">
+          粘贴分享链接，生成清爽、易读的独立页面。<br
+            class="mobile-break"
+          />让阅读回到对话本身。
+        </p>
+      </section>
 
-    <div class="workspace">
-      <section class="form-pane" aria-labelledby="import-title">
-        <div class="section-heading">
-          <span class="section-index">01</span>
-          <div>
-            <p class="section-kicker">Source</p>
-            <h2 id="import-title">Create snapshot</h2>
-          </div>
-        </div>
-
-        <form id="import-form" novalidate>
-          <label for="share-url">ChatGPT Share URL</label>
-          <input id="share-url" name="url" type="url" inputmode="url" autocomplete="url" required
-                 placeholder="https://chatgpt.com/share/...">
-          <p class="field-note">Accepted hosts: chatgpt.com and chat.openai.com.</p>
-
-          <label for="snapshot-title">Title override <span>optional</span></label>
-          <input id="snapshot-title" name="title" type="text" maxlength="240" autocomplete="off"
-                 placeholder="Use the conversation title">
-
-          <details class="advanced">
-            <summary>Import options</summary>
-            <div class="advanced-grid">
-              <div>
-                <label for="timezone">Timezone</label>
-                <input id="timezone" name="timezone" type="text" autocomplete="off" placeholder="UTC">
-              </div>
-              <div>
-                <label for="timeout">Timeout</label>
-                <div class="number-field">
-                  <input id="timeout" name="timeout" type="number" min="0" max="300" value="30">
-                  <span>seconds</span>
+      <div class="workspace">
+        <section class="form-pane" aria-labelledby="import-title">
+          <form id="import-form" novalidate>
+            <label id="import-title" for="share-url">ChatGPT 分享链接</label>
+            <div class="url-composer">
+              <span class="link-symbol" aria-hidden="true">↗</span>
+              <input
+                id="share-url"
+                name="url"
+                type="url"
+                inputmode="url"
+                autocomplete="url"
+                required
+                aria-describedby="url-note"
+                placeholder="https://chatgpt.com/share/..."
+              />
+              <button id="submit-button" class="primary-action" type="submit">
+                生成分享页 <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <p id="url-note" class="field-note">
+              在 ChatGPT 对话中点击「分享」，复制链接后粘贴到这里。
+            </p>
+            <details class="advanced">
+              <summary>自定义选项 <span>标题、时区与导入设置</span></summary>
+              <label for="snapshot-title">页面标题 <span>选填</span></label>
+              <input
+                id="snapshot-title"
+                name="title"
+                type="text"
+                maxlength="240"
+                autocomplete="off"
+                placeholder="默认使用原对话标题"
+              />
+              <div class="advanced-grid">
+                <div>
+                  <label for="timezone">时区</label>
+                  <input
+                    id="timezone"
+                    name="timezone"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="UTC"
+                  />
+                </div>
+                <div>
+                  <label for="timeout">等待时间</label>
+                  <div class="number-field">
+                    <input
+                      id="timeout"
+                      name="timeout"
+                      type="number"
+                      min="0"
+                      max="300"
+                      value="30"
+                    />
+                    <span>秒</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <label class="check-row" for="include-hidden">
-              <input id="include-hidden" name="include_hidden" type="checkbox">
-              <span>Include hidden and system messages</span>
-            </label>
-            <label class="check-row" for="all-nodes">
-              <input id="all-nodes" name="all_nodes" type="checkbox">
-              <span>Include all conversation branches</span>
-            </label>
-          </details>
+              <label class="check-row" for="include-hidden">
+                <input
+                  id="include-hidden"
+                  name="include_hidden"
+                  type="checkbox"
+                />
+                <span>归档隐藏及系统消息（阅读页不展示）</span>
+              </label>
+              <label class="check-row" for="all-nodes">
+                <input id="all-nodes" name="all_nodes" type="checkbox" />
+                <span>包含所有对话分支</span>
+              </label>
+            </details>
 
-          <div id="form-error" class="alert alert-error" role="alert" hidden></div>
-          <button id="submit-button" class="primary-action" type="submit">Create snapshot</button>
-        </form>
-      </section>
+            <div
+              id="form-error"
+              class="alert alert-error"
+              role="alert"
+              hidden
+            ></div>
+          </form>
+          <p class="privacy-note">
+            仅支持公开分享链接。生成的页面可通过链接访问，请勿包含敏感信息。
+          </p>
+        </section>
 
-      <section class="result-pane" aria-labelledby="result-title">
-        <div class="section-heading">
-          <span class="section-index">02</span>
-          <div>
-            <p class="section-kicker">Publication</p>
-            <h2 id="result-title">Snapshot result</h2>
-          </div>
-        </div>
-
-        <ol class="publish-rail" aria-label="Publication progress">
-          <li data-step="validate"><span>1</span><strong>Validate link</strong></li>
-          <li data-step="fetch"><span>2</span><strong>Fetch conversation</strong></li>
-          <li data-step="publish"><span>3</span><strong>Publish revision</strong></li>
-        </ol>
-
-        <div id="empty-result" class="empty-result">
-          <p>No snapshot yet.</p>
-        </div>
-
-        <div id="snapshot-result" class="snapshot-result" hidden>
-          <div class="result-status">
-            <span id="result-badge" class="status-badge">Published</span>
-            <span id="result-summary"></span>
-          </div>
-          <h3 id="result-name"></h3>
-          <dl class="metadata">
-            <div><dt>Revision</dt><dd id="result-revision"></dd></div>
-            <div><dt>Messages</dt><dd id="result-messages"></dd></div>
-          </dl>
-
-          <div class="output-group">
-            <label for="page-url">Full page</label>
-            <div class="output-row">
-              <input id="page-url" type="text" readonly>
-              <button type="button" class="secondary-action" data-copy-target="page-url">Copy</button>
-              <a id="page-open" class="icon-action" target="_blank" rel="noopener noreferrer" aria-label="Open full page" title="Open full page">&#8599;</a>
+        <section
+          id="result-pane"
+          class="result-pane"
+          aria-labelledby="result-title"
+          aria-live="polite"
+          hidden
+        >
+          <div class="section-heading">
+            <span class="section-index">02</span>
+            <div>
+              <p class="section-kicker">READY TO SHARE</p>
+              <h2 id="result-title">你的分享页</h2>
             </div>
           </div>
 
-          <div class="output-group">
-            <label for="embed-url">Embed page</label>
-            <div class="output-row">
-              <input id="embed-url" type="text" readonly>
-              <button type="button" class="secondary-action" data-copy-target="embed-url">Copy</button>
-              <a id="embed-open" class="icon-action" target="_blank" rel="noopener noreferrer" aria-label="Open embed page" title="Open embed page">&#8599;</a>
-            </div>
+          <ol class="publish-rail" aria-label="Publication progress">
+            <li data-step="validate">
+              <span>1</span><strong>检查链接</strong>
+            </li>
+            <li data-step="fetch"><span>2</span><strong>读取对话</strong></li>
+            <li data-step="publish"><span>3</span><strong>生成页面</strong></li>
+          </ol>
+
+          <div id="empty-result" class="empty-result">
+            <p>正在整理对话，请稍候…</p>
           </div>
 
-          <section id="token-section" class="token-section" aria-labelledby="token-title">
-            <div class="token-heading">
+          <div id="snapshot-result" class="snapshot-result" hidden>
+            <div class="result-status">
+              <span id="result-badge" class="status-badge">Published</span>
+              <span id="result-summary"></span>
+            </div>
+            <h3 id="result-name"></h3>
+            <dl class="metadata">
               <div>
-                <p class="section-kicker">Shown once</p>
-                <h3 id="token-title">Management token</h3>
+                <dt>版本</dt>
+                <dd id="result-revision"></dd>
               </div>
-              <button type="button" class="secondary-action" data-copy-target="admin-token">Copy token</button>
-            </div>
-            <code id="admin-token"></code>
-            <p>Store this token now. It is required to refresh or delete the snapshot and cannot be retrieved later.</p>
-          </section>
+              <div>
+                <dt>归档消息</dt>
+                <dd id="result-messages"></dd>
+              </div>
+            </dl>
 
-          <div id="existing-note" class="alert" hidden>This share URL already has a snapshot. Existing imports do not issue another management token.</div>
+            <div class="output-group">
+              <label for="page-url">分享链接</label>
+              <div class="output-row">
+                <input id="page-url" type="text" readonly />
+                <button
+                  type="button"
+                  class="secondary-action"
+                  data-copy-target="page-url"
+                >
+                  复制
+                </button>
+                <a
+                  id="page-open"
+                  class="icon-action"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open full page"
+                  title="Open full page"
+                  >&#8599;</a
+                >
+              </div>
+            </div>
+
+            <div class="output-group">
+              <label for="embed-url">嵌入页面链接</label>
+              <div class="output-row">
+                <input id="embed-url" type="text" readonly />
+                <button
+                  type="button"
+                  class="secondary-action"
+                  data-copy-target="embed-url"
+                >
+                  复制
+                </button>
+                <a
+                  id="embed-open"
+                  class="icon-action"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open embed page"
+                  title="Open embed page"
+                  >&#8599;</a
+                >
+              </div>
+            </div>
+
+            <section
+              id="token-section"
+              class="token-section"
+              aria-labelledby="token-title"
+            >
+              <div class="token-heading">
+                <div>
+                  <p class="section-kicker">仅显示一次 · 请妥善保存</p>
+                  <h3 id="token-title">管理令牌</h3>
+                </div>
+                <button
+                  type="button"
+                  class="secondary-action"
+                  data-copy-target="admin-token"
+                >
+                  复制令牌
+                </button>
+              </div>
+              <code id="admin-token"></code>
+              <p>
+                更新或删除这份对话需要此令牌，之后无法再次查看。不要与分享链接一起发送。
+              </p>
+            </section>
+
+            <div id="existing-note" class="alert" hidden>
+              此链接已有分享页，已返回现有页面，不会重复生成管理令牌。
+            </div>
+          </div>
+        </section>
+      </div>
+      <section
+        id="how-it-works"
+        class="how-section"
+        aria-labelledby="how-title"
+      >
+        <div class="how-copy">
+          <p class="eyebrow">从一段链接，到一页对话</p>
+          <h2 id="how-title">分享内容，<br />不用分享整个界面。</h2>
+          <p>
+            保留问题与正式回答，收起中间过程。代码、表格和长文，都有适合阅读的空间。
+          </p>
+          <ol class="how-steps">
+            <li>复制 ChatGPT 的公开分享链接</li>
+            <li>粘贴链接，生成独立阅读页</li>
+            <li>复制新链接，或嵌入你的网站</li>
+          </ol>
+        </div>
+        <div class="preview" aria-label="对话排版示意">
+          <div class="preview-bar">
+            <span class="preview-dot"></span> 对话阅读页 <span>排版示意</span>
+          </div>
+          <div class="preview-content">
+            <p class="preview-label">你</p>
+            <p class="preview-question">如何让一个好想法，更容易被分享？</p>
+            <p class="preview-label preview-assistant">ChatGPT</p>
+            <div class="preview-answer">
+              <h3>让内容成为主角。</h3>
+              <p>
+                一个链接，一页清晰的对话。<br />留下有价值的回答，让阅读自然继续。
+              </p>
+              <div class="preview-line"></div>
+              <div class="preview-line short"></div>
+            </div>
+          </div>
         </div>
       </section>
-    </div>
-  </main>
+    </main>
+    <footer class="footer">
+      <span>ChatGPT Share Page</span><span>独立工具 · 非 OpenAI 官方产品</span>
+    </footer>
 
-  <script src="/assets/index.js" defer></script>
-</body>
+    <script src="/assets/index.js" defer></script>
+  </body>
 </html>
