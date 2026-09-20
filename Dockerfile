@@ -25,6 +25,5 @@ ENV PORT=8080 \
 
 USER app
 EXPOSE 8080
-VOLUME ["/data"]
 
 ENTRYPOINT ["/usr/local/bin/chatgpt-share-page"]
