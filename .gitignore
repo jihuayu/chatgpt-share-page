@@ -27,6 +27,7 @@ id_ed25519*
 /chatgpt-share-page
 *.exe
 coverage.out
+node_modules/
 
 # OS / editor
 Thumbs.db
