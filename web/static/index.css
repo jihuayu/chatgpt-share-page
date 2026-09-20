@@ -319,6 +319,7 @@ input::placeholder {
   padding: 22px 24px 30px;
 }
 .preview-label {
+  text-align: right;
   font-size: 10px;
   color: var(--muted);
   margin: 0 0 7px;
@@ -327,14 +328,14 @@ input::placeholder {
   font-size: 12px;
   background: var(--soft);
   padding: 12px 14px;
-  border-radius: 3px 12px 12px 12px;
-  margin: 0 28px 25px 0;
+  border-radius: 12px 3px 12px 12px;
+  margin: 0 0 25px 28px;
 }
 .preview-assistant {
-  text-align: right;
+  text-align: left;
 }
 .preview-answer {
-  margin-left: 28px;
+  margin-right: 28px;
 }
 .preview-answer h3 {
   font-size: 16px;

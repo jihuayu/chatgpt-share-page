@@ -27,7 +27,7 @@ import (
 var templatesFS embed.FS
 
 // Version is bumped whenever the rendered output shape changes.
-const Version = "r3"
+const Version = "r4"
 
 // pageScript powers copy buttons and the theme toggle on full pages.
 const pageScript = `(function(){
@@ -213,6 +213,7 @@ type msgView struct {
 	Hidden    bool
 	Blocks    []template.HTML
 	Citations []template.HTML
+	Media     []template.HTML
 }
 
 func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script string, embed bool) (viewData, error) {
@@ -229,12 +230,23 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 		}
 		blocks := make([]template.HTML, 0, len(msg.Blocks))
 		var citations []template.HTML
+		var media []template.HTML
 		for _, block := range msg.Blocks {
+			if block.Type == "image" && block.URL == "" {
+				block.Content = "已上传图片"
+				if msg.Role == "assistant" {
+					block.Content = "已生成图片"
+				}
+			}
 			rendered, err := r.blockHTML(block)
 			if err != nil {
 				return viewData{}, &RenderError{Err: err}
 			}
 			if rendered != "" {
+				if block.Type == "image" || block.Type == "attachment" {
+					media = append(media, rendered)
+					continue
+				}
 				if block.Type == "citation" {
 					citations = append(citations, rendered)
 					continue
@@ -250,6 +262,7 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 			Hidden:    msg.Hidden,
 			Blocks:    blocks,
 			Citations: citations,
+			Media:     media,
 		}
 		if msg.CreatedAt != nil {
 			view.CreatedAt = msg.CreatedAt.In(location).Format("2006-01-02 15:04 MST")
@@ -275,6 +288,16 @@ func (r *Renderer) viewData(snapshot *conversation.ConversationSnapshot, script 
 // blockHTML renders one ContentBlock to a safe HTML fragment.
 func (r *Renderer) blockHTML(block conversation.ContentBlock) (template.HTML, error) {
 	switch block.Type {
+	case "image":
+		imageURL := conversation.PublicImageURL(block.URL)
+		if imageURL == "" {
+			label := block.Content
+			if label != "已生成图片" {
+				label = "已上传图片"
+			}
+			return template.HTML(`<div class="media-placeholder"><span aria-hidden="true">▧</span> ` + label + `</div>`), nil
+		}
+		return template.HTML(`<figure class="chat-image"><a href="` + html.EscapeString(imageURL) + `" target="_blank" rel="noopener noreferrer"><img src="` + html.EscapeString(imageURL) + `" alt="` + html.EscapeString(block.Title) + `" loading="lazy" referrerpolicy="no-referrer"></a></figure>`), nil
 	case "markdown":
 		out, err := r.renderMarkdown(block.Content)
 		if err != nil {
@@ -312,10 +335,9 @@ func (r *Renderer) blockHTML(block conversation.ContentBlock) (template.HTML, er
 			`" target="_blank" rel="nofollow noopener noreferrer">` + html.EscapeString(title) + `</a></span>`), nil
 	case "attachment":
 		var b strings.Builder
-		b.WriteString(`<div class="attachment"><span class="att-icon">file</span>`)
-		b.WriteString(`<span class="att-name">` + html.EscapeString(block.Title) + `</span>`)
-		if block.Content != "" {
-			b.WriteString(`<span class="att-desc">` + html.EscapeString(block.Content) + `</span>`)
+		b.WriteString(`<div class="media-placeholder"><span aria-hidden="true">▤</span><span>已上传文件</span>`)
+		if block.Title != "" && !strings.HasPrefix(block.Title, "file_") {
+			b.WriteString(`<span class="att-name">` + html.EscapeString(block.Title) + `</span>`)
 		}
 		b.WriteString(`</div>`)
 		return template.HTML(b.String()), nil

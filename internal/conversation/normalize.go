@@ -74,6 +74,7 @@ func Normalize(conversation map[string]any, sourceURL string, opts Options, now 
 	if snapshot.Metadata.Model == "" {
 		snapshot.Metadata.Model = detectModel(messages)
 	}
+	RestoreResearchReports(snapshot, conversation)
 	return snapshot, nil
 }
 
@@ -244,6 +245,10 @@ func normalizeMessage(message map[string]any, includeHidden bool) *ConversationM
 	contentType := stringValue(content["content_type"])
 	channel := strings.ToLower(firstString(message["channel"], metadata["channel"]))
 	recipient := strings.ToLower(stringValue(message["recipient"]))
+	finalImage := finalImageOutput(message)
+	if finalImage {
+		role = "assistant"
+	}
 	process := role == "tool" || role == "system" ||
 		(role == "assistant" && ((channel != "" && channel != "final") ||
 			(recipient != "" && recipient != "all") || contentType == "thoughts" ||
@@ -259,6 +264,15 @@ func normalizeMessage(message map[string]any, includeHidden bool) *ConversationM
 	}
 
 	blocks := contentBlocks(message, content, metadata)
+	if finalImage {
+		images := make([]ContentBlock, 0, len(blocks))
+		for _, block := range blocks {
+			if block.Type == "image" {
+				images = append(images, block)
+			}
+		}
+		blocks = images
+	}
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -375,7 +389,8 @@ func attachmentBlocks(message, metadata map[string]any, imageParts []map[string]
 			mime = "image"
 		}
 		blocks = append(blocks, ContentBlock{
-			Type:      "attachment",
+			Type:      "image",
+			URL:       PublicImageURL(pointer),
 			Title:     name,
 			Content:   describeAttachment(mime, firstNonNil(part["size_bytes"], attachment["size"]), part),
 			AssetName: fileID,

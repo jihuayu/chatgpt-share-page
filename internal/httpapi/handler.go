@@ -410,7 +410,7 @@ func (h *Handler) serveRevision(w http.ResponseWriter, r *http.Request, kind str
 	}
 	// Preserve archived HTML and snapshot JSON; cache the upgraded
 	// presentation separately so existing public URLs receive rendering fixes.
-	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" {
+	if rev.RendererVersion == "r1" || rev.RendererVersion == "r2" || rev.RendererVersion == "r3" {
 		path += "." + renderer.Version
 	}
 	data, err := h.files.ReadFile(path)
@@ -450,7 +450,7 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if data, err := h.files.ReadFile(path); err == nil {
 		return data, nil // another request rebuilt it
 	}
-	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" {
+	if rev.RendererVersion != renderer.Version && rev.RendererVersion != "r1" && rev.RendererVersion != "r2" && rev.RendererVersion != "r3" {
 		return nil, errors.New("artifact renderer version is no longer available")
 	}
 	select {
@@ -467,7 +467,7 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 	if err := json.Unmarshal(raw, &snapshot); err != nil {
 		return nil, err
 	}
-	if rev.RendererVersion == "r1" {
+	if rev.RendererVersion != renderer.Version {
 		payload, readErr := h.files.ReadFile(h.files.RawRelPath(rev.SnapshotID))
 		if readErr != nil {
 			return nil, fmt.Errorf("read legacy message metadata: %w", readErr)
@@ -477,6 +477,8 @@ func (h *Handler) regenerateArtifact(ctx context.Context, rev *storage.Revision,
 			return nil, err
 		}
 		conversation.RestorePresentationMetadata(&snapshot, original)
+		conversation.RestoreResearchReports(&snapshot, original)
+		conversation.RestoreImageBlocks(&snapshot, original)
 	}
 	var data []byte
 	if kind == "e" {
