@@ -41,7 +41,16 @@ ChatGPT Share URL -> fetch -> extract -> normalize
 ### Docker
 
 Container images for `linux/amd64` and `linux/arm64` are published to GitHub
-Container Registry after pushes to `main` and tags matching `v*`.
+Container Registry. Pushes to `main` publish `main` and commit SHA tags. Pushing
+a release tag matching `v*` publishes both that exact version tag and `latest`.
+
+For example, publishing `v1.0.0` produces:
+
+```text
+ghcr.io/jihuayu/chatgpt-share-page:v1.0.0
+ghcr.io/jihuayu/chatgpt-share-page:latest
+ghcr.io/jihuayu/chatgpt-share-page:sha-<commit>
+```
 
 ```sh
 docker pull ghcr.io/jihuayu/chatgpt-share-page:latest
